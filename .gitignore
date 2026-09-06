@@ -1,0 +1,22 @@
+# Trained model artifacts -- don't commit these. scikit-learn pickles only
+# reliably load with the exact library version that created them, so a
+# committed .pkl trained on your machine can break on Streamlit Cloud's
+# environment (different Python/sklearn version). The app auto-trains its
+# own copy on first load instead -- see STREAMLIT_README.md.
+models/*.pkl
+models/*.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Streamlit local secrets (if you add any later, e.g. API keys)
+.streamlit/secrets.toml

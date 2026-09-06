@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Electricity availability forecasting for a Nigerian Disco: 2.75M rows of daily feeder data, a demand forecasting model, and a network reliability map.">
+<title>Grid Pulse — Electricity Availability, Mapped and Forecast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav id="side-nav">
+  <div class="nav-brand">GRID_PULSE·2026</div>
+  <ul>
+    <li><a href="#overview" class="active">Overview</a></li>
+    <li><a href="#trends">Trends</a></li>
+    <li><a href="#rhythm">Rhythm</a></li>
+    <li><a href="#reliability">Reliability</a></li>
+    <li><a href="#map">Network Map</a></li>
+    <li><a href="#model">Model</a></li>
+    <li><a href="#feeders">Best &amp; Worst</a></li>
+  </ul>
+  <a class="nav-cta" href="#" id="live-app-link">Open live tool &rarr;</a>
+</nav>
+
+<main>
+
+  <!-- ================= HERO / OVERVIEW ================= -->
+  <section id="overview" class="hero">
+    <div class="kicker">ELECTRICITY AVAILABILITY FORECASTING · A NIGERIAN DISCO</div>
+    <h1>Grid supply, mapped and <span class="accent">forecast</span>.</h1>
+    <p class="lede">
+      2.75 million daily readings across 302 feeders and 8,613 customer addresses
+      turned into a demand forecasting model, a reliability map, and a backup-power
+      recommendation engine — built for a distribution company and the customers on
+      its network.
+    </p>
+    <div class="coord-line">LAT 6.52 · LON 3.38 &nbsp;·&nbsp; <span id="loading-tag">loading dataset…</span></div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-value" data-count="2747030" data-suffix="">0</div>
+        <div class="stat-label">Rows of daily data</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" data-count="8" data-suffix="">0</div>
+        <div class="stat-label">Months tracked</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" data-count="302" data-suffix="">0</div>
+        <div class="stat-label">Feeders</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" data-count="8613" data-suffix="">0</div>
+        <div class="stat-label">Addresses</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 01 TRENDS ================= -->
+  <section id="trends" class="block">
+    <div class="section-header"><span class="tick"></span><span class="num">01</span>
+      <h2>Monthly trends</h2>
+    </div>
+    <p class="section-copy">
+      Average daily supply dipped hardest in March (11.1h/day, 4.1h average shortfall)
+      and recovered through the middle of the year, climbing back to 15.1h/day by August —
+      the best month in the dataset.
+    </p>
+    <div class="chart-card">
+      <canvas id="chart-monthly"></canvas>
+    </div>
+  </section>
+
+  <!-- ================= 02 RHYTHM ================= -->
+  <section id="rhythm" class="block">
+    <div class="section-header"><span class="tick"></span><span class="num">02</span>
+      <h2>Weekly rhythm</h2>
+    </div>
+    <p class="section-copy">
+      Supply is remarkably flat across the week — under half an hour of variation between
+      the best day (Sunday, 13.9h) and the softest (Friday, 13.1h). Unlike consumer demand,
+      grid allocation here doesn't follow a strong weekday/weekend pattern.
+    </p>
+    <div class="chart-card">
+      <canvas id="chart-dow"></canvas>
+    </div>
+  </section>
+
+  <!-- ================= 03 RELIABILITY ================= -->
+  <section id="reliability" class="block">
+    <div class="section-header"><span class="tick"></span><span class="num">03</span>
+      <h2>Reliability, by the hour — not the band</h2>
+    </div>
+    <p class="section-copy">
+      Every feeder is assigned a "band" — a regulatory cap on daily hours (4, 8, 12, 16, or
+      24h). Grading reliability against that cap alone is misleading: a feeder hitting 100%
+      of an 8-hour band is still only delivering 8 hours a day. So reliability here is graded
+      on <strong>absolute hours out of 24</strong>, regardless of band.
+    </p>
+    <div class="two-col">
+      <div class="chart-card">
+        <h4>Feeders by reliability tier</h4>
+        <canvas id="chart-reliability"></canvas>
+      </div>
+      <div class="chart-card">
+        <h4>Feeders by band</h4>
+        <canvas id="chart-band"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 04 MAP ================= -->
+  <section id="map" class="block">
+    <div class="section-header"><span class="tick"></span><span class="num">04</span>
+      <h2>Every feeder, across the network</h2>
+    </div>
+    <p class="section-copy">
+      276 feeders with resolved coordinates, color-coded by average daily supply.
+      Click a marker for details.
+    </p>
+    <div class="legend-row">
+      <span><i class="dot green"></i> Good (&ge;18h/day)</span>
+      <span><i class="dot yellow"></i> Fair (12–18h/day)</span>
+      <span><i class="dot orange"></i> Poor (6–12h/day)</span>
+      <span><i class="dot red"></i> Critical (&lt;6h/day)</span>
+    </div>
+    <div id="leaflet-map"></div>
+  </section>
+
+  <!-- ================= 05 MODEL ================= -->
+  <section id="model" class="block">
+    <div class="section-header"><span class="tick"></span><span class="num">05</span>
+      <h2>The forecasting model</h2>
+    </div>
+    <p class="section-copy">
+      A one-day-ahead demand model (gradient-boosted trees), trained on Jan–Jun,
+      validated on July, tested on August — a genuine time-based split, no leakage.
+      7-day forecasts are produced recursively, feeding each day's prediction back in
+      as the next day's lag features.
+    </p>
+    <div class="model-metrics">
+      <div class="metric-block">
+        <div class="metric-tag">TRAIN</div>
+        <div class="metric-row"><span>MAE</span><b id="m-train-mae">–</b></div>
+        <div class="metric-row"><span>RMSE</span><b id="m-train-rmse">–</b></div>
+        <div class="metric-row"><span>R²</span><b id="m-train-r2">–</b></div>
+      </div>
+      <div class="metric-block">
+        <div class="metric-tag">VALIDATION (JUL)</div>
+        <div class="metric-row"><span>MAE</span><b id="m-val-mae">–</b></div>
+        <div class="metric-row"><span>RMSE</span><b id="m-val-rmse">–</b></div>
+        <div class="metric-row"><span>R²</span><b id="m-val-r2">–</b></div>
+      </div>
+      <div class="metric-block highlight">
+        <div class="metric-tag">TEST (AUG)</div>
+        <div class="metric-row"><span>MAE</span><b id="m-test-mae">–</b></div>
+        <div class="metric-row"><span>RMSE</span><b id="m-test-rmse">–</b></div>
+        <div class="metric-row"><span>R²</span><b id="m-test-r2">–</b></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h4>What the model actually relies on</h4>
+      <canvas id="chart-importance"></canvas>
+      <p class="chart-note">Yesterday's actual hours (LAG_1D) dominates — expected for a
+        highly autocorrelated series like grid supply. Weather is currently synthetic
+        (no live feed connected yet), so its low importance here isn't yet meaningful.</p>
+    </div>
+  </section>
+
+  <!-- ================= 06 BEST/WORST ================= -->
+  <section id="feeders" class="block">
+    <div class="section-header"><span class="tick"></span><span class="num">06</span>
+      <h2>The extremes</h2>
+    </div>
+    <div class="two-col">
+      <div class="chart-card">
+        <h4>Needs backup power most</h4>
+        <table class="feeder-table" id="table-worst"></table>
+      </div>
+      <div class="chart-card">
+        <h4>Most reliable</h4>
+        <table class="feeder-table" id="table-best"></table>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Built on 8 months of feeder-level daily availability data.
+    Map tiles &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>,
+    data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors.
+    Charts via Chart.js, map via Leaflet.
+  </footer>
+
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

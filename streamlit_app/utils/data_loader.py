@@ -1,0 +1,120 @@
+"""
+Cached data/model loaders shared by every page.
+
+Paths are relative to streamlit_app/, expecting the folder layout from the
+phase-1 zip:
+
+    deliverable/
+        data/processed/full_engineered.pkl, weather_cache.csv, month=*.csv.gz
+        models/demand_model.pkl, demand_model_features.json
+        streamlit_app/   <- this file lives here
+"""
+import json
+from pathlib import Path
+
+import pandas as pd
+import streamlit as st
+import joblib
+
+ROOT = Path(__file__).resolve().parent.parent.parent  # deliverable/
+DATA_DIR = ROOT / "data" / "processed"
+MODEL_DIR = ROOT / "models"
+
+
+@st.cache_data(show_spinner="Loading historical data...")
+def load_engineered_data() -> pd.DataFrame:
+    pkl_path = DATA_DIR / "full_engineered.pkl"
+    if pkl_path.exists():
+        return pd.read_pickle(pkl_path)
+    # Fallback: reassemble from the gzip-CSV month partitions if the pickle
+    # wasn't shipped (e.g. you regenerated data without re-running with the
+    # pickle writer, or copied only the CSVs to save space).
+    parts = sorted(DATA_DIR.glob("month=*.csv.gz"))
+    if not parts:
+        raise FileNotFoundError(
+            f"No data found in {DATA_DIR}. Run src/01_build_pipeline.py first."
+        )
+    return pd.concat([pd.read_csv(p, parse_dates=["DATE"]) for p in parts], ignore_index=True)
+
+
+@st.cache_resource(show_spinner="Loading model...")
+def load_model():
+    model_path = MODEL_DIR / "demand_model.pkl"
+    if not model_path.exists():
+        # No terminal access on platforms like Streamlit Community Cloud, so
+        # train it here on first load rather than erroring out. Takes ~2-3
+        # min the first time; cached (via @st.cache_resource) after that.
+        with st.spinner("First-time setup: training the forecasting model (2-3 minutes)..."):
+            status_box = st.empty()
+            from utils.model_training import train_demand_model
+            train_demand_model(
+                data_dir=str(DATA_DIR),
+                model_dir=str(MODEL_DIR),
+                progress_callback=lambda msg: status_box.text(msg),
+            )
+            status_box.empty()
+    model = joblib.load(model_path)
+    with open(MODEL_DIR / "demand_model_features.json") as f:
+        meta = json.load(f)
+    return model, meta["features"]
+
+
+@st.cache_data(show_spinner=False)
+def load_weather_cache() -> pd.DataFrame:
+    return pd.read_csv(DATA_DIR / "weather_cache.csv", parse_dates=["DATE"])
+
+
+@st.cache_data(show_spinner=False)
+def address_feeder_lookup(df: pd.DataFrame) -> pd.DataFrame:
+    """One row per (FEEDER_NAME, ADDRESS) with static attributes -- used for
+    search/autosuggest and the network map, without needing the full
+    2.7M-row table in memory for those views."""
+    cols = ["FEEDER_NAME", "ADDRESS", "LATITUDE", "LONGITUDE",
+            "Maintenance Status", "BAND", "CUSTOMER_DENSITY"]
+    lookup = (
+        df[df["ADDRESS"] != "NO_ADDRESS_MATCH"][cols]
+        .drop_duplicates(subset=["FEEDER_NAME", "ADDRESS"])
+        .reset_index(drop=True)
+    )
+    return lookup
+
+
+@st.cache_data(show_spinner=False)
+def feeder_reliability_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """Per-feeder average availability -- used for the network map color
+    coding and the 'top areas needing solar' home page insight."""
+    summary = (
+        df[df["ADDRESS"] != "NO_ADDRESS_MATCH"]
+        .groupby("FEEDER_NAME", observed=True)
+        .agg(
+            avg_actual_hours=("ACTUAL_HOURS", "mean"),
+            avg_availability_pct=("AVAILABILITY_PERCENTAGE", "mean"),
+            avg_shortfall=("SHORTFALL", "mean"),
+            band=("BAND", "first"),
+            latitude=("LATITUDE", "mean"),
+            longitude=("LONGITUDE", "mean"),
+            n_addresses=("ADDRESS", "nunique"),
+        )
+        .reset_index()
+        .dropna(subset=["latitude", "longitude"])
+    )
+    return summary
+
+
+def reliability_color(avg_actual_hours: float) -> str:
+    """Green/yellow/orange/red banding for map markers and badges.
+
+    Deliberately based on absolute hours of supply out of a 24h day, NOT on
+    AVAILABILITY_PERCENTAGE (which is relative to each feeder's BAND). A
+    feeder on a low band (e.g. Band D, 8h max) hitting 100% of its band is
+    still only delivering 8h/day -- that should read as poor, not green.
+    """
+    if pd.isna(avg_actual_hours):
+        return "gray"
+    if avg_actual_hours >= 18:
+        return "green"
+    if avg_actual_hours >= 12:
+        return "yellow"
+    if avg_actual_hours >= 6:
+        return "orange"
+    return "red"
