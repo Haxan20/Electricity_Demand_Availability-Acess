@@ -1,8 +1,19 @@
-pandas>=2.0
-numpy>=1.24
+# xgboost intentionally NOT included. It requires a compiled C++/OpenMP
+# runtime, and on Streamlit Community Cloud (Python 3.14, minimal container)
+# it triggered a native-process crash on import -- "connection reset by
+# peer" on the health check, no catchable Python traceback, immediately
+# after server startup. utils/model_training.py already falls back to
+# scikit-learn's HistGradientBoostingRegressor when xgboost isn't
+# importable (same algorithm family, tested end-to-end, R2~0.76 on the
+# Aug test set) -- so leaving it out is the safe default for this platform.
+# If you want to try xgboost again later (e.g. on a different host, or once
+# a Python-3.14-compatible build is confirmed stable), add it back pinned
+# to a specific version you've verified works, not an open->= range.
+
+pandas>=2.0,<4.0
+numpy>=1.24,<3.0
 scikit-learn==1.8.0
-xgboost>=2.0
-pyarrow>=14.0
+pyarrow>=14.0,<25
 joblib>=1.3
 streamlit>=1.30
 plotly>=5.18
