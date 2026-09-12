@@ -8,7 +8,7 @@ import pandas as pd
 
 from utils.data_loader import load_engineered_data, address_feeder_lookup, feeder_reliability_summary
 from utils.search import search_addresses, search_feeders
-from utils.theme import inject_theme, kicker
+from utils.theme import inject_theme, kicker, metric_card
 
 st.set_page_config(
     page_title="Electricity Availability Forecast",
@@ -71,10 +71,14 @@ st.divider()
 # ---------------------------------------------------------------------------
 st.subheader("Network overview")
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Feeders tracked", f"{reliability['FEEDER_NAME'].nunique():,}")
-col2.metric("Addresses tracked", f"{lookup.shape[0]:,}")
-col3.metric("Avg. daily hours of supply", f"{reliability['avg_actual_hours'].mean():.1f}h")
-col4.metric("Avg. daily shortfall", f"{reliability['avg_shortfall'].mean():.1f}h")
+with col1:
+    metric_card("Feeders tracked", f"{reliability['FEEDER_NAME'].nunique():,}")
+with col2:
+    metric_card("Addresses tracked", f"{lookup.shape[0]:,}")
+with col3:
+    metric_card("Avg. daily hours of supply", f"{reliability['avg_actual_hours'].mean():.1f}h")
+with col4:
+    metric_card("Avg. daily shortfall", f"{reliability['avg_shortfall'].mean():.1f}h")
 
 st.markdown("**Top 5 areas needing backup power most** (lowest average hours of supply)")
 worst = reliability.nsmallest(5, "avg_actual_hours")[

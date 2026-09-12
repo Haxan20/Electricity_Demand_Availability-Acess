@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 from utils.data_loader import load_engineered_data, feeder_reliability_summary, reliability_color
-from utils.theme import inject_theme, kicker
+from utils.theme import inject_theme, kicker, metric_card
 
 st.set_page_config(page_title="Network Map", page_icon="🗺️", layout="wide")
 inject_theme()
@@ -67,11 +67,16 @@ try:
             d = details.iloc[0]
             st.subheader(f"Feeder: {clicked_feeder}")
             c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Avg hours/day", f"{d['avg_actual_hours']:.1f}h")
-            c2.metric("Band (max hours)", f"{d['band']:.0f}h")
-            c3.metric("Availability vs band", f"{d['avg_availability_pct']:.1f}%")
-            c4.metric("Avg shortfall", f"{d['avg_shortfall']:.1f}h")
-            c5.metric("Addresses", f"{d['n_addresses']:.0f}")
+            with c1:
+                metric_card("Avg hours/day", f"{d['avg_actual_hours']:.1f}h")
+            with c2:
+                metric_card("Band (max hours)", f"{d['band']:.0f}h")
+            with c3:
+                metric_card("Availability vs band", f"{d['avg_availability_pct']:.1f}%")
+            with c4:
+                metric_card("Avg shortfall", f"{d['avg_shortfall']:.1f}h")
+            with c5:
+                metric_card("Addresses", f"{d['n_addresses']:.0f}")
 
 except ImportError:
     st.warning(

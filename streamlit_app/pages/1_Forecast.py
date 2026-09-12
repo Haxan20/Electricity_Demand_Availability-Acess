@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 
 from utils.data_loader import load_engineered_data, load_weather_cache, load_model
 from utils.forecast import forecast_n_days, recent_history
-from utils.theme import inject_theme, kicker
+from utils.theme import inject_theme, kicker, metric_card
 
 st.set_page_config(page_title="Forecast", page_icon="📈", layout="wide")
 inject_theme()
@@ -58,13 +58,18 @@ st.caption(
 )
 
 row1_col1, row1_col2, row1_col3 = st.columns(3)
-row1_col1.metric("Band (max hours/day)", f"{band:.0f}h")
-row1_col2.metric("Tomorrow's forecast", f"{today_pred:.1f}h")
-row1_col3.metric(f"{n_days}-day average", f"{avg_pred:.1f}h")
+with row1_col1:
+    metric_card("Band (max hours/day)", f"{band:.0f}h")
+with row1_col2:
+    metric_card("Tomorrow's forecast", f"{today_pred:.1f}h")
+with row1_col3:
+    metric_card(f"{n_days}-day average", f"{avg_pred:.1f}h")
 
 row2_col1, row2_col2 = st.columns(2)
-row2_col1.metric("Best day", f"{best_day['PREDICTED_ACTUAL_HOURS']:.1f}h", help=str(best_day["DATE"]))
-row2_col2.metric("Avg. shortfall", f"{avg_shortfall:.1f}h", delta=f"of {band:.0f}h band", delta_color="off")
+with row2_col1:
+    metric_card("Best day", f"{best_day['PREDICTED_ACTUAL_HOURS']:.1f}h", delta=str(best_day["DATE"]))
+with row2_col2:
+    metric_card("Avg. shortfall", f"{avg_shortfall:.1f}h", delta=f"of {band:.0f}h band")
 
 st.divider()
 

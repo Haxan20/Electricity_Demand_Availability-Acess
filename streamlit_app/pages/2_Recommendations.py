@@ -4,7 +4,7 @@ import pandas as pd
 from utils.data_loader import load_engineered_data, load_weather_cache, load_model
 from utils.forecast import forecast_n_days
 from utils.recommend import build_recommendation, appliance_list_to_kwh, hours_to_kwh, APPLIANCE_WATTAGE
-from utils.theme import inject_theme, kicker
+from utils.theme import inject_theme, kicker, metric_card
 
 st.set_page_config(page_title="Recommendations", page_icon="🔌", layout="wide")
 inject_theme()
@@ -106,27 +106,27 @@ cols = st.columns(3)
 if rec.solar_kw:
     with cols[0]:
         st.markdown("**\u2600️ Solar system**")
-        st.metric("Recommended size", f"{rec.solar_kw} kW")
-        st.metric("Estimated cost", f"\u20a6{rec.solar_cost_naira:,.0f}")
+        metric_card("Recommended size", f"{rec.solar_kw} kW")
+        metric_card("Estimated cost", f"\u20a6{rec.solar_cost_naira:,.0f}")
 
 if rec.battery_kwh:
     with cols[1]:
         st.markdown("**🔋 Battery storage**")
-        st.metric("Recommended capacity", f"{rec.battery_kwh} kWh")
-        st.metric("Estimated cost", f"\u20a6{rec.battery_cost_naira:,.0f}")
+        metric_card("Recommended capacity", f"{rec.battery_kwh} kWh")
+        metric_card("Estimated cost", f"\u20a6{rec.battery_cost_naira:,.0f}")
 
 if rec.generator_kva:
     with cols[0]:
         st.markdown("**🛢️ Generator**")
-        st.metric("Recommended size", f"{rec.generator_kva} kVA")
-        st.metric("Estimated cost", f"\u20a6{rec.generator_cost_naira:,.0f}")
-        st.metric("Fuel cost", f"\u20a6{rec.generator_fuel_naira_per_day:,.0f}/day")
+        metric_card("Recommended size", f"{rec.generator_kva} kVA")
+        metric_card("Estimated cost", f"\u20a6{rec.generator_cost_naira:,.0f}")
+        metric_card("Fuel cost", f"\u20a6{rec.generator_fuel_naira_per_day:,.0f}/day")
 
 if rec.payback_years:
     with cols[2]:
         st.markdown("**💰 Payback**")
-        st.metric("Estimated payback", f"{rec.payback_years} years")
-        st.metric("Annual value of gap (grid tariff)", f"\u20a6{rec.annual_grid_gap_cost_naira:,.0f}")
+        metric_card("Estimated payback", f"{rec.payback_years} years")
+        metric_card("Annual value of gap (grid tariff)", f"\u20a6{rec.annual_grid_gap_cost_naira:,.0f}")
 
 st.divider()
 st.markdown("**Energy efficiency (always worth doing regardless of backup choice)**")
