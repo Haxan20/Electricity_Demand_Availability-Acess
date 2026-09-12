@@ -4,7 +4,23 @@ CLI script (src/02_train_demand_model.py) and automatically by the
 Streamlit app on first load if no trained model exists yet (needed for
 platforms like Streamlit Community Cloud, which give you no terminal to
 run a setup script manually).
+
+Memory note: training on the full ~2.17M-row training split with
+HistGradientBoostingRegressor peaked at ~3GB RAM in testing -- comfortably
+fine locally, but enough to crash a free-tier cloud container (which is
+also already holding the ~700MB engineered dataframe). So this module:
+  - accepts an already-loaded dataframe (df_override) to avoid loading the
+    ~700MB dataset a second time when the caller (the Streamlit app) has
+    already loaded it once via its own cache
+  - supports max_train_rows to subsample the training split specifically
+    (val/test stay full-size, since those drive the metrics you actually
+    care about) -- keeps memory and training time bounded on constrained
+    hosts, at a small, measured cost to accuracy (see comment near the
+    default value below)
+  - explicitly frees large intermediates as soon as they're no longer
+    needed, rather than waiting for the whole function to return
 """
+import gc
 import glob
 import json
 import os
@@ -37,7 +53,10 @@ def load_engineered_dataframe(data_dir: str) -> pd.DataFrame:
     return pd.concat([pd.read_csv(p, parse_dates=["DATE"]) for p in parts], ignore_index=True)
 
 
-def train_demand_model(data_dir: str, model_dir: str, progress_callback=None) -> dict:
+def train_demand_model(data_dir: str, model_dir: str, progress_callback=None,
+                        df_override: pd.DataFrame = None,
+                        max_train_rows: int = None,
+                        compute_importance: bool = True) -> dict:
     """
     Trains the demand model and writes demand_model.pkl + metadata JSON
     files into model_dir. Returns the metrics dict.
@@ -45,6 +64,23 @@ def train_demand_model(data_dir: str, model_dir: str, progress_callback=None) ->
     progress_callback, if given, is called with short status strings --
     used by the Streamlit app to show a spinner/status message during
     first-time setup. Safe to leave as None for CLI use (falls back to print).
+
+    df_override: pass an already-loaded engineered dataframe to skip
+    loading it again from disk. Caller keeps ownership; this function
+    doesn't mutate it (works on df.copy() internally where needed, or
+    row-index views that don't touch the original data's memory beyond
+    the new column pandas has to add for get_dummies output).
+
+    max_train_rows: if set, randomly subsamples the TRAIN split (not
+    val/test) down to at most this many rows before fitting. Keeps
+    memory and CPU time bounded on constrained hosts.
+
+    compute_importance: sklearn's HistGradientBoostingRegressor has no
+    built-in feature_importances_, so getting one means running
+    permutation_importance (predicts on a sample n_repeats times) --
+    real added memory/CPU cost for a number that's only ever read by the
+    standalone static report generator, not the Streamlit app itself.
+    Set False to skip it (writes an empty importance file instead).
     """
     def status(msg):
         if progress_callback:
@@ -62,26 +98,51 @@ def train_demand_model(data_dir: str, model_dir: str, progress_callback=None) ->
     status(f"Model backend: {backend}")
     os.makedirs(model_dir, exist_ok=True)
 
-    status("Loading engineered dataset...")
-    df = load_engineered_dataframe(data_dir)
-    df = df.dropna(subset=[TARGET]).reset_index(drop=True)
+    if df_override is not None:
+        status("Using already-loaded dataset...")
+        df_source = df_override
+    else:
+        status("Loading engineered dataset...")
+        df_source = load_engineered_dataframe(data_dir)
+
+    # Work on the smallest slice possible: only the columns the model needs,
+    # only rows with a usable target, and (for the train split) only up to
+    # max_train_rows -- BEFORE dropna/get_dummies, not after. Transforming
+    # the full 2.7M-row frame first (then subsampling) was measured to peak
+    # at ~1.8GB on top of the ~700MB the caller's cache already holds;
+    # slicing down first keeps the transient copies proportional to what's
+    # actually used instead of the whole dataset.
+    needed_cols = FEATURES_BASE + ["SEASON", "MONTH_NUM", TARGET]
+    needed_cols = [c for c in dict.fromkeys(needed_cols) if c in df_source.columns]
+    has_target = df_source[TARGET].notna()
+
+    train_idx = df_source.index[has_target & (df_source["MONTH_NUM"] <= 6)]
+    val_idx = df_source.index[has_target & (df_source["MONTH_NUM"] == 7)]
+    test_idx = df_source.index[has_target & (df_source["MONTH_NUM"] == 8)]
+
+    if max_train_rows and len(train_idx) > max_train_rows:
+        status(f"Subsampling train set: {len(train_idx):,} -> {max_train_rows:,} rows")
+        train_idx = pd.Index(pd.Series(train_idx).sample(max_train_rows, random_state=42))
+
+    all_idx = train_idx.append(val_idx).append(test_idx)
+    df = df_source.loc[all_idx, needed_cols].copy()
+    if df_override is None:
+        del df_source  # only ours to free if we loaded it ourselves
+    gc.collect()
 
     df = pd.get_dummies(df, columns=["SEASON"], prefix="SEASON")
     season_cols = [c for c in df.columns if c.startswith("SEASON_")]
     features = FEATURES_BASE + season_cols
 
-    X = df[features]
-    y = df[TARGET]
+    X_train = df.loc[train_idx, features]
+    y_train = df.loc[train_idx, TARGET]
+    X_val = df.loc[val_idx, features]
+    y_val = df.loc[val_idx, TARGET]
+    X_test = df.loc[test_idx, features]
+    y_test = df.loc[test_idx, TARGET]
 
-    train_mask = df["MONTH_NUM"] <= 6
-    val_mask = df["MONTH_NUM"] == 7
-    test_mask = df["MONTH_NUM"] == 8
-
-    X_train, y_train = X[train_mask], y[train_mask]
-    X_val, y_val = X[val_mask], y[val_mask]
-    X_test, y_test = X[test_mask], y[test_mask]
-
-    status(f"Train: {len(X_train):,}  Val: {len(X_val):,}  Test: {len(X_test):,}")
+    del df
+    gc.collect()
 
     t0 = time.time()
     if backend == "xgboost":
@@ -122,13 +183,22 @@ def train_demand_model(data_dir: str, model_dir: str, progress_callback=None) ->
 
     if backend == "xgboost":
         importances = dict(zip(features, model.feature_importances_.tolist()))
-    else:
+    elif compute_importance:
         from sklearn.inspection import permutation_importance
-        sample = X_val.sample(min(20000, len(X_val)), random_state=42) if len(X_val) else X_train.sample(20000, random_state=42)
-        sample_y = y.loc[sample.index]
+        sample_pool = X_val if len(X_val) else X_train
+        sample_y_pool = y_val if len(X_val) else y_train
+        sample = sample_pool.sample(min(20000, len(sample_pool)), random_state=42)
+        sample_y = sample_y_pool.loc[sample.index]
         perm = permutation_importance(model, sample, sample_y, n_repeats=3, random_state=42, n_jobs=-1)
         importances = dict(zip(features, perm.importances_mean.tolist()))
+        del sample, sample_y, perm
+    else:
+        status("Skipping feature importance computation (compute_importance=False)")
+        importances = {}
     top_features = dict(sorted(importances.items(), key=lambda x: -x[1])[:10])
+
+    del X_train, y_train, X_val, y_val, X_test, y_test
+    gc.collect()
 
     joblib.dump(model, os.path.join(model_dir, "demand_model.pkl"))
     with open(os.path.join(model_dir, "demand_model_features.json"), "w") as f:

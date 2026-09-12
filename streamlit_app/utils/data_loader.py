@@ -73,6 +73,11 @@ def load_model():
         # No terminal access on platforms like Streamlit Community Cloud, so
         # train it here on first load rather than erroring out. Takes ~2-3
         # min the first time; cached (via @st.cache_resource) after that.
+        #
+        # max_train_rows=500_000 caps memory/CPU for this specific path --
+        # full-data training measured at ~3GB peak RAM, which crashed on a
+        # free-tier host. df_override reuses the dataframe load_engineered_data()
+        # already cached, instead of loading the ~700MB dataset a second time.
         with st.spinner("First-time setup: training the forecasting model (2-3 minutes)..."):
             status_box = st.empty()
             from utils.model_training import train_demand_model
@@ -80,6 +85,9 @@ def load_model():
                 data_dir=str(DATA_DIR),
                 model_dir=str(MODEL_DIR),
                 progress_callback=lambda msg: status_box.text(msg),
+                df_override=load_engineered_data(),
+                max_train_rows=200_000,
+                compute_importance=False,
             )
             status_box.empty()
     model = joblib.load(model_path)
