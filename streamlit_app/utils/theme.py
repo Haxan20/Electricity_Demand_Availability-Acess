@@ -49,10 +49,17 @@ div[data-testid="stMetricLabel"] {
     letter-spacing: 0.06em;
     text-transform: uppercase;
     opacity: 0.75;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
 }
 div[data-testid="stMetricValue"] {
     font-family: 'Space Grotesk', sans-serif;
     color: #f5a623;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word;
 }
 
 /* Section divider with accent tick, used via st.markdown(section_header(...)) */

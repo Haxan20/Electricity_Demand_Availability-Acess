@@ -77,7 +77,7 @@ with tab_single:
 # ---------------------------------------------------------------------------
 with tab_compare:
     st.caption("Compare forecasted availability across up to 5 addresses.")
-    all_labels = (lookup["ADDRESS"] + " — " + lookup["FEEDER_NAME"]).tolist()
+    all_labels = (lookup["ADDRESS"].astype(str) + " — " + lookup["FEEDER_NAME"].astype(str)).tolist()
     chosen = st.multiselect("Select addresses to compare", all_labels, max_selections=5)
 
     if chosen:

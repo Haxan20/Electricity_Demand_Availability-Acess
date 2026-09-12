@@ -57,12 +57,14 @@ st.caption(
     f"shown against this cap."
 )
 
-col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Band (max hours/day)", f"{band:.0f}h")
-col2.metric("Tomorrow's forecast", f"{today_pred:.1f}h")
-col3.metric(f"{n_days}-day average", f"{avg_pred:.1f}h")
-col4.metric("Best day", f"{best_day['PREDICTED_ACTUAL_HOURS']:.1f}h", help=str(best_day["DATE"]))
-col5.metric("Avg. shortfall", f"{avg_shortfall:.1f}h", delta=f"of {band:.0f}h band", delta_color="off")
+row1_col1, row1_col2, row1_col3 = st.columns(3)
+row1_col1.metric("Band (max hours/day)", f"{band:.0f}h")
+row1_col2.metric("Tomorrow's forecast", f"{today_pred:.1f}h")
+row1_col3.metric(f"{n_days}-day average", f"{avg_pred:.1f}h")
+
+row2_col1, row2_col2 = st.columns(2)
+row2_col1.metric("Best day", f"{best_day['PREDICTED_ACTUAL_HOURS']:.1f}h", help=str(best_day["DATE"]))
+row2_col2.metric("Avg. shortfall", f"{avg_shortfall:.1f}h", delta=f"of {band:.0f}h band", delta_color="off")
 
 st.divider()
 
