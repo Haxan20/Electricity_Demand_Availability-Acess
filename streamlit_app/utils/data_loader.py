@@ -20,6 +20,28 @@ ROOT = Path(__file__).resolve().parent.parent.parent  # deliverable/
 DATA_DIR = ROOT / "data" / "processed"
 MODEL_DIR = ROOT / "models"
 
+# Same dtypes 01_build_pipeline.py uses when writing the engineered data.
+# Needed here too: without them, pandas' default dtypes (object for every
+# string column, float64/int64 for numbers) blow up memory ~2.5x for a
+# dataset this size -- confirmed to peak at ~1.9GB without this, which is
+# almost certainly what was causing 503/connection-reset errors on
+# Streamlit Community Cloud's free tier. With dtypes applied, the same
+# data loads at ~700MB.
+_ENGINEERED_DTYPES = {
+    "FEEDER_NAME": "category", "ADDRESS": "category", "LATITUDE": "float32",
+    "LONGITUDE": "float32", "Maintenance Status": "category", "BAND": "float32",
+    "ACTUAL_HOURS": "float32", "SHORTFALL": "float32", "AVAILABILITY_PERCENTAGE": "float32",
+    "SHORTFALL_PERCENTAGE": "float32", "MONTH": "category", "YEAR": "int16",
+    "DAY_OF_WEEK": "category", "WEEKEND": "int8", "DAY_OF_YEAR": "int16",
+    "WX_TEMP_MAX": "float32", "WX_TEMP_MIN": "float32", "WX_TEMP_AVG": "float32",
+    "WX_HUMIDITY": "float32", "WX_CLOUD_COVER": "float32", "WX_RAINFALL_MM": "float32",
+    "WX_WIND_KMH": "float32", "WX_SOLAR_KWH_M2": "float32", "ROLL_MEAN_7D": "float32",
+    "ROLL_MEAN_14D": "float32", "ROLL_MEAN_30D": "float32", "VOLATILITY_7D": "float32",
+    "LAG_1D": "float32", "LAG_2D": "float32", "LAG_3D": "float32", "LAG_7D": "float32",
+    "LAG_14D": "float32", "LAG_30D": "float32", "TREND_30D": "float32",
+    "CUSTOMER_DENSITY": "int32", "DOW_NUM": "int8", "MONTH_NUM": "int8", "SEASON": "category",
+}
+
 
 @st.cache_data(show_spinner="Loading historical data...")
 def load_engineered_data() -> pd.DataFrame:
@@ -34,7 +56,14 @@ def load_engineered_data() -> pd.DataFrame:
         raise FileNotFoundError(
             f"No data found in {DATA_DIR}. Run src/01_build_pipeline.py first."
         )
-    return pd.concat([pd.read_csv(p, parse_dates=["DATE"]) for p in parts], ignore_index=True)
+    # Only pass dtypes for columns actually present (older/regenerated CSVs
+    # might not have every column) so this doesn't hard-fail on a mismatch.
+    sample_cols = set(pd.read_csv(parts[0], nrows=0).columns)
+    dtypes = {k: v for k, v in _ENGINEERED_DTYPES.items() if k in sample_cols}
+    return pd.concat(
+        [pd.read_csv(p, parse_dates=["DATE"], dtype=dtypes) for p in parts],
+        ignore_index=True,
+    )
 
 
 @st.cache_resource(show_spinner="Loading model...")
