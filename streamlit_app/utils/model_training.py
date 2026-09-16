@@ -33,7 +33,15 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 FEATURES_BASE = [
     "BAND", "LATITUDE", "LONGITUDE",
     "WX_TEMP_MAX", "WX_TEMP_MIN", "WX_TEMP_AVG", "WX_HUMIDITY",
-    "WX_CLOUD_COVER", "WX_RAINFALL_MM", "WX_WIND_KMH", "WX_SOLAR_KWH_M2",
+    # WX_CLOUD_COVER deliberately excluded: NASA POWER's CLOUD_AMT parameter
+    # has a real processing lag of ~2-3 months, so it was entirely missing
+    # for the val/test evaluation window when this was tested (confirmed:
+    # 78 consecutive missing days, exactly spanning July-August). Including
+    # it meant the model had cloud data during training but none during
+    # evaluation, which measurably hurt val/test metrics. Re-add if you
+    # confirm NASA POWER has since caught up on this parameter for your
+    # date range (check with the diagnostic in the chat history).
+    "WX_RAINFALL_MM", "WX_WIND_KMH", "WX_SOLAR_KWH_M2",
     "ROLL_MEAN_7D", "ROLL_MEAN_14D", "ROLL_MEAN_30D", "VOLATILITY_7D",
     "LAG_1D", "LAG_2D", "LAG_3D", "LAG_7D", "LAG_14D", "LAG_30D",
     "TREND_30D", "CUSTOMER_DENSITY", "DOW_NUM", "MONTH_NUM", "WEEKEND",
