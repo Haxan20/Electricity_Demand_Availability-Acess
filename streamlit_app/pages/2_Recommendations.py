@@ -90,7 +90,6 @@ st.subheader("Recommendation")
 
 PRIMARY_LABELS = {
     "none": ("\u2705 You're mostly covered", "Grid supply meets your stated need on most days."),
-    "generator": ("🛢️ Generator recommended", "Your shortfall is occasional -- a generator for backup is the more cost-effective option."),
     "solar": ("\u2600️ Solar recommended", "Your shortfall is significant enough that solar panels are worth considering."),
     "solar_battery": ("🔋 Solar + Battery recommended", "Frequent, significant shortfall -- solar with battery storage gives the most reliable coverage."),
 }
@@ -106,26 +105,19 @@ cols = st.columns(3)
 if rec.solar_kw:
     with cols[0]:
         st.markdown("**\u2600️ Solar system**")
-        metric_card("Recommended size", f"{rec.solar_kw} kW")
+        metric_card("Recommended size", f"{rec.solar_kw:.4f} kW")
         metric_card("Estimated cost", f"\u20a6{rec.solar_cost_naira:,.0f}")
 
 if rec.battery_kwh:
     with cols[1]:
         st.markdown("**🔋 Battery storage**")
-        metric_card("Recommended capacity", f"{rec.battery_kwh} kWh")
+        metric_card("Recommended capacity", f"{rec.battery_kwh:.4f} kWh")
         metric_card("Estimated cost", f"\u20a6{rec.battery_cost_naira:,.0f}")
-
-if rec.generator_kva:
-    with cols[0]:
-        st.markdown("**🛢️ Generator**")
-        metric_card("Recommended size", f"{rec.generator_kva} kVA")
-        metric_card("Estimated cost", f"\u20a6{rec.generator_cost_naira:,.0f}")
-        metric_card("Fuel cost", f"\u20a6{rec.generator_fuel_naira_per_day:,.0f}/day")
 
 if rec.payback_years:
     with cols[2]:
         st.markdown("**💰 Payback**")
-        metric_card("Estimated payback", f"{rec.payback_years} years")
+        metric_card("Estimated payback", f"{rec.payback_years:.4f} years")
         metric_card("Annual value of gap (grid tariff)", f"\u20a6{rec.annual_grid_gap_cost_naira:,.0f}")
 
 st.divider()
